@@ -21,7 +21,7 @@ This Python script leverages the ElevenLabs API to convert text input into speec
 1. **Clone the repository:**
 
    ```bash
-   git clone https://github.com/yourusername/tts-batch-processor.git
+   git clone https://github.com/Arffeh/elevenlabs-tts-batch-processor.git
    cd tts-batch-processor
    ```
 
