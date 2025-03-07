@@ -1,0 +1,4 @@
+elevenlabs
+python-dotenv
+httpx
+requests
