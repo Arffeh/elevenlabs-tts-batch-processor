@@ -26,6 +26,8 @@ load_environment_variables()
 # Initialize ElevenLabs client
 api_key = os.getenv('ELEVENLABS_API_KEY')
 voice_id = os.getenv('ELEVENLABS_VOICE_ID')
+api_url = os.getenv('ELEVENLABS_API_URL', 'https://api.elevenlabs.io/v1')
+
 if not api_key:
     raise ValueError("API key not found. Please set ELEVENLABS_API_KEY in your environment.")
 if not voice_id:
@@ -52,7 +54,7 @@ valid_formats = [
 if output_format not in valid_formats:
     raise ValueError(f"Invalid output format: {output_format}. Must be one of {valid_formats}")
 
-client = ElevenLabs(api_key=api_key)
+client = ElevenLabs(api_key=api_key, base_url=api_url)
 
 def get_next_output_number(directory):
     pattern = re.compile(r'output_(\d{4})\.(mp3|wav)')
@@ -164,7 +166,7 @@ def text_to_speech_file(text, voice_id, output_filename, retries=3, retry_delay=
 
 
 def list_voices(api_key):
-    url = "https://api.elevenlabs.io/v1/voices"
+    url = f"{api_url}/v1/voices"
     headers = {"xi-api-key": api_key}
     response = requests.get(url, headers=headers)
     if response.status_code == 200:

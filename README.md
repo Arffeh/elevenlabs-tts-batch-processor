@@ -54,6 +54,8 @@ This Python script leverages the ElevenLabs API to convert text input into speec
    ELEVENLABS_SPEED=1.0
    ELEVENLABS_MODEL_ID=eleven_multilingual_v2
    ELEVENLABS_OUTPUT_FORMAT=mp3_44100
+   ELEVENLABS_API_URL=https://api.elevenlabs.io
+
    ```
    
    The ELEVENLABS_OUTPUT_FORMAT variable accepts strictly the following:
