@@ -22,7 +22,7 @@ This Python script leverages the ElevenLabs API to convert text input into speec
 
    ```bash
    git clone https://github.com/Arffeh/elevenlabs-tts-batch-processor.git
-   cd tts-batch-processor
+   cd elevenlabs-tts-batch-processor
    ```
 
 
