@@ -162,27 +162,18 @@ def text_to_speech_file(text, voice_id, output_filename, retries=3, retry_delay=
                 print(f"Retrying in {retry_delay} seconds...")
                 time.sleep(retry_delay)
             else:
-                print(f"All {retries} attempts failed. Skipping '{text}'.")
-
-
-def list_voices(api_key):
-    url = f"{api_url}/v1/voices"
-    headers = {"xi-api-key": api_key}
-    response = requests.get(url, headers=headers)
-    if response.status_code == 200:
-        voices = response.json().get('voices', [])
-        for voice in voices:
-            print(f"Name: {voice['name']}, Voice ID: {voice['voice_id']}")
-    else:
-        print(f"Failed: {response.status_code} - {response.text}")
+def list_voices():
+    response = client.voices.get_all()
+    for voice in response.voices:
+        print(f"Name: {voice.name}, Voice ID: {voice.voice_id}")
 
 def main():
     parser = argparse.ArgumentParser(description="ElevenLabs TTS Batch Processor")
-    parser.add_argument('--list-voices', action='store_true', help="List available voices and exit")
+    parser.add_argument('--list-voices', action='store_true')
     args = parser.parse_args()
 
     if args.list_voices:
-        list_voices(api_key)
+        list_voices()
         return
 
     output_dir = 'output'
