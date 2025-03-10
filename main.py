@@ -8,6 +8,7 @@ from dotenv import load_dotenv
 from elevenlabs import ElevenLabs, VoiceSettings
 import time
 from httpx import ReadTimeout
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 def load_environment_variables():
     if getattr(sys, 'frozen', False):
@@ -32,6 +33,9 @@ if not api_key:
     raise ValueError("API key not found. Please set ELEVENLABS_API_KEY in your environment.")
 if not voice_id:
     raise ValueError("Voice ID not found. Please set ELEVENLABS_VOICE_ID in your environment.")
+
+# Retrieve the concurrency limit from environment variables
+concurrency_limit = int(os.getenv('ELEVENLABS_CONCURRENCY_LIMIT', '1'))
 
 # Load voice settings from environment variables
 stability = float(os.getenv('ELEVENLABS_STABILITY', 0.5))
@@ -78,12 +82,14 @@ def add_wav_header(audio_data, audio_format='ulaw', sample_rate=8000, num_channe
     if audio_format == 'ulaw':
         audio_format_code = 7  # μ-law
         bits_per_sample = 8
+        subchunk1_size = 18
     elif audio_format == 'pcm':
         audio_format_code = 1  # PCM
+        bits_per_sample = 16
+        subchunk1_size = 16
     else:
         raise ValueError("Unsupported audio format. Use 'ulaw' or 'pcm'.")
 
-    subchunk1_size = 16 if audio_format_code == 1 else 18  # 18 for ulaw, 16 for PCM
     byte_rate = sample_rate * num_channels * bits_per_sample // 8
     block_align = num_channels * bits_per_sample // 8
     subchunk2_size = len(audio_data)
@@ -145,7 +151,7 @@ def text_to_speech_file(text, voice_id, output_filename, retries=3, retry_delay=
             audio_data = b''.join(chunk for chunk in audio_stream if chunk)
 
             if output_format == "ulaw_8000":
-                audio_data = add_wav_header(audio_data)
+                audio_data = add_wav_header(audio_data, 'ulaw', 8000)
             elif output_format.startswith("pcm"):
                 pcm_sample_rate = int(output_format.split("_")[1])
                 audio_data = add_wav_header(audio_data, audio_format='pcm', sample_rate=pcm_sample_rate)
@@ -153,19 +159,27 @@ def text_to_speech_file(text, voice_id, output_filename, retries=3, retry_delay=
             with open(output_filename, "wb") as f:
                 f.write(audio_data)
 
-            print(f"A new audio file was saved successfully at {output_filename}")
-            break  # Break the loop if successful
+            print(f"Saved: {output_filename}")
+            return True
 
         except (ReadTimeout, requests.exceptions.RequestException) as e:
-            print(f"Attempt {attempt + 1}/{retries} failed: {e}")
+            print(f"Attempt {attempt + 1}/{retries} failed for '{line}': {e}")
             if attempt < retries - 1:
-                print(f"Retrying in {retry_delay} seconds...")
                 time.sleep(retry_delay)
             else:
+                print(f"All retries failed for '{line}'")
+                return False
+
 def list_voices():
     response = client.voices.get_all()
     for voice in response.voices:
         print(f"Name: {voice.name}, Voice ID: {voice.voice_id}")
+
+def process_line(line, output_filename):
+    success = text_to_speech_file(line, voice_id, output_filename)
+    if not success:
+        print(f"Failed to process line: {line}")
+    return success
 
 def main():
     parser = argparse.ArgumentParser(description="ElevenLabs TTS Batch Processor")
@@ -179,17 +193,25 @@ def main():
     output_dir = 'output'
     os.makedirs(output_dir, exist_ok=True)
 
+    ext = 'mp3' if output_format == 'mp3_44100' else 'wav'
+
     next_number = get_next_output_number(output_dir)
 
     with open('input.txt', 'r') as file:
         lines = [line.strip() for line in file if line.strip()]
 
-    extension = 'mp3' if output_format == 'mp3_44100' else 'wav'
-
+    tasks = []
     for line in lines:
-        output_filename = os.path.join(output_dir, f'output_{next_number:04}.{extension}')
-        text_to_speech_file(line, voice_id, output_filename)
+        output_filename = os.path.join(output_dir, f'output_{next_number:04}.{ext}')
+        tasks.append((line, output_filename))
         next_number += 1
+
+    with ThreadPoolExecutor(max_workers=concurrency_limit) as executor:
+        futures = {executor.submit(process_line, line, fname): (line, fname) for line, fname in tasks}
+        for future in as_completed(futures):
+            line, fname = futures[future]
+            if not future.result():
+                print(f"Failed processing line: {line}")
 
 if __name__ == "__main__":
     main()
